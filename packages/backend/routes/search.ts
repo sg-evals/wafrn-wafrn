@@ -36,8 +36,14 @@ export default function searchRoutes(app: Application) {
 
   app.get('/api/v2/search', authenticateToken, async (req: AuthorizedRequest, res: Response) => {
     const posterId = req.jwtData?.userId ? req.jwtData.userId : '00000000-0000-0000-0000-000000000000'
-    // const success = false;
-    const searchTerm = (req.query.term || '').toString().trim()
+    let searchTerm = (req.query.term || '').toString().trim()
+    if (searchTerm.startsWith('@')) {
+      searchTerm = searchTerm.slice(1)
+    }
+    if (searchTerm.startsWith('#')) {
+      searchTerm = searchTerm.slice(1)
+    }
+
     const page = Number(req?.query.page) || 0
     const forceSearchUser = (req.query.user || '').toString().trim()
     let forceSearchUserId: string | undefined = undefined
@@ -143,24 +149,38 @@ export default function searchRoutes(app: Application) {
   })
 
   async function searchUsers(searchTerm: string, userId: string, page = 0): Promise<User[]> {
-    let remoteMatch: Promise<User | null> | null = null
-    let firstMatch = !page
-      ? User.findOne({
-          attributes: ['url', 'avatar', 'name', 'description', 'remoteId', 'bskyDid', 'federatedHostId', 'id'],
-          where: {
-            activated: true,
-            banned: {
-              [Op.ne]: true
-            },
-            url: {
-              [Op.iLike]: searchTerm
-            }
+    const userSearchAttributes = [
+      'id',
+      'url',
+      'avatar',
+      'name',
+      'description',
+      'remoteId',
+      'bskyDid',
+      'federatedHostId',
+    ]
+
+    let firstMatchPromise: Promise<User | null> | null = null
+    let remoteMatchPromise: Promise<User | null> | null = null
+    if (page === 0) {
+      firstMatchPromise = User.findOne({
+        attributes: userSearchAttributes,
+        where: {
+          activated: true,
+          banned: {
+            [Op.ne]: true
+          },
+          url: {
+            [Op.iLike]: searchTerm
           }
-        })
-      : null
-    if (page == 0) {
-      remoteMatch = searchUserFediAndbsky(searchTerm, (await User.findByPk(userId)) as User)
+        }
+      })
+      remoteMatchPromise = searchUserFediAndbsky(
+        searchTerm,
+        (await User.findByPk(userId)) as User
+      )
     }
+
     // we only start displaying remote users when we have finished with local users
     const localUsersCount = await User.count({
       where: {
@@ -176,73 +196,91 @@ export default function searchRoutes(app: Application) {
         }
       }
     })
-    let localUsers =
-      localUsersCount >= page * completeEnvironment.postsPerPage
-        ? await User.findAll({
-            where: {
-              activated: true,
-              banned: {
-                [Op.ne]: true
-              },
-              email: {
-                [Op.ne]: null
-              },
-              url: {
-                [Op.iLike]: `%${searchTerm}%`
+    
+    const ppp = completeEnvironment.postsPerPage
+
+    let localUsersPromise: Promise<User[]> | null = null
+    if (localUsersCount >= page * ppp) {
+      localUsersPromise = User.findAll({
+        where: {
+          activated: true,
+          banned: {
+            [Op.ne]: true
+          },
+          email: {
+            [Op.ne]: null // this is what marks a local user
+          },
+          url: {
+            [Op.iLike]: `%${searchTerm}%`
+          }
+        },
+        attributes: userSearchAttributes,
+        order: [['createdAt', 'DESC']],
+        limit: ppp,
+        offset: page * ppp
+      })
+    }
+    
+    const remoteUsersPage = page - Math.floor(localUsersCount / ppp)
+    let remoteUsersPromise: Promise<User[]> | null = null
+    if (remoteUsersPage >= 0) {
+      remoteUsersPromise = User.findAll({
+        where: {
+          activated: true,
+          email: null, // this is what marks a remote user
+          banned: {
+            [Op.ne]: true
+          },
+          url: {
+            [Op.iLike]: `%${searchTerm}%`
+          },
+          [Op.or]: [
+            {
+              federatedHostId: {
+                [Op.notIn]: await getallBlockedServers()
               }
             },
-            attributes: ['url', 'avatar', 'name', 'description', 'remoteId', 'bskyDid', 'federatedHostId', 'id'],
-            order: [['createdAt', 'DESC']],
-            limit: completeEnvironment.postsPerPage,
-            offset: page * completeEnvironment.postsPerPage
-          })
-        : []
-    const remoteUsersPage = page - Math.floor(localUsersCount / completeEnvironment.postsPerPage)
-    let remoteUsers =
-      remoteUsersPage >= 0
-        ? User.findAll({
-            where: {
-              activated: true,
-              email: null,
-              banned: {
-                [Op.ne]: true
-              },
-              url: {
-                [Op.iLike]: `%${searchTerm}%`
-              },
-              [Op.or]: [
-                {
-                  federatedHostId: {
-                    [Op.notIn]: await getallBlockedServers()
-                  }
-                },
-                {
-                  federatedHostId: {
-                    [Op.eq]: null
-                  }
-                }
-              ]
-            },
-            attributes: ['url', 'avatar', 'name', 'description', 'remoteId', 'bskyDid', 'federatedHostId', 'id'],
-            order: [['createdAt', 'DESC']],
-            limit: completeEnvironment.postsPerPage,
-            offset: remoteUsersPage * completeEnvironment.postsPerPage
-          })
-        : []
+            {
+              federatedHostId: {
+                [Op.eq]: null
+              }
+            }
+          ]
+        },
+        attributes: userSearchAttributes,
+        order: [['createdAt', 'DESC']],
+        limit: ppp,
+        offset: remoteUsersPage * ppp
+      })      
+    }
 
-    const tmp = await Promise.all([firstMatch, localUsers, remoteUsers, remoteMatch])
-    if (await remoteMatch) {
+    let [
+      firstMatch,
+      localUsers,
+      remoteUsers,
+      remoteMatch
+    ] = await Promise.all([
+      firstMatchPromise,
+      localUsersPromise,
+      remoteUsersPromise,
+      remoteMatchPromise
+    ])
+
+    if (remoteMatch) {
       firstMatch = remoteMatch
     }
+
     let res: User[] = []
-    if (await firstMatch) {
-      res.push((await firstMatch) as User)
+    if (firstMatch) {
+      res.push(firstMatch)
     }
-    res = res.concat(await localUsers)
-    if ((await remoteUsers) && (await remoteUsers).length >= 1) {
-      let tmpRemote = await remoteUsers
-      res = res.concat(tmpRemote as User[])
+    if (localUsers) {
+      res = res.concat(localUsers)
     }
+    if (remoteUsers) {
+      res = res.concat(remoteUsers)
+    }
+
     // we want to check that we dont get duplicated users
     const resUrls = res.map((elem) => elem.url)
     return res.filter((elem, index) => resUrls.indexOf(elem.url) == index)
