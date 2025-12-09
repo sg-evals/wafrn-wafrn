@@ -1,23 +1,14 @@
-@if (title) {
-  <div class="mx-3 lg:mx-4 wafrn-container">
-    <h2 class="my-3 text-3xl dashboard-title">{{ title | translate }}</h2>
-  </div>
-}
-<app-post-list
-  [posts]="posts"
-  [visible]="snActive"
-  [loading]="loadingPosts"
-  (loadPosts)="rateLimitLoadPosts()"
-></app-post-list>
+<app-post-list [title]="title" [posts]="posts" [visible]="snActive" [loading]="loadingPosts"
+  (loadPosts)="rateLimitLoadPosts()"></app-post-list>
 
 @if (noMorePosts) {
-  <mat-card class="p-3 mb-6 lg:mx-4 wafrn-container">
-    <h2>You dont seem to be following anyone yet!</h2>
-    <p>
-      Consider taking a look at the <a [routerLink]="'/dashboard/exploreLocal'">local dashboard</a> or
-      <a [routerLink]="'/dashboard/explore'">explore the fediverse</a>
-    </p>
-  </mat-card>
+<mat-card class="p-3 mb-6 lg:mx-4 wafrn-container">
+  <h2>You dont seem to be following anyone yet!</h2>
+  <p>
+    Consider taking a look at the <a [routerLink]="'/dashboard/exploreLocal'">local dashboard</a> or
+    <a [routerLink]="'/dashboard/explore'">explore the fediverse</a>
+  </p>
+</mat-card>
 }
 
 <footer class="p-8 flex gap-3 align-items-center">
