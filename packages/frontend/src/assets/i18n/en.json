@@ -139,7 +139,7 @@
     "bskyLengthWarning": "Text above 300 characters will be cut off and instead a link to wafrn will be shown",
     "bskyLengthNotice": "This only affects Bluesky, currently only an approximation!",
     "bskyLengthLabel": "Bluesky character limit",
-    "altTextFieldLabel": "Image Description",
+    "altTextFieldLabel": "Media Description",
     "altTextFieldLabelVideo": "Video Description",
     "altTextFieldPlaceholder": "Description. Please FILL THIS",
     "isNSFWToggle": "NSFW",
