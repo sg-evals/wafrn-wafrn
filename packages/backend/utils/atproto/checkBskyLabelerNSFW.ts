@@ -1,6 +1,6 @@
 import { Label } from "@atproto/api";
 import { promiseRace } from "../../atproto/utils/promiseRace.js";
-import { Post } from "../../models/index.js";
+import { Media, Post } from "../../models/index.js";
 import { getAllLocalUserIds } from "../cacheGetters/getAllLocalUserIds.js";
 import { getAdminUser } from "../getAdminAndDeletedUser.js";
 import { logger } from "../logger.js";
@@ -48,6 +48,25 @@ async function checkBskyLabelersNSFW(posts: Post[]): Promise<void> {
           const postLabels = (labels.get(uri) as string[]).join(",");
           postToLabel.content_warning = `Post labeled as ${postLabels}`;
           await postToLabel.save();
+
+          if (
+            (labels.get(uri) as string[]).includes('sexual') ||
+            (labels.get(uri) as string[]).includes('nudity') ||
+            (labels.get(uri) as string[]).includes('porn')
+          ) {
+            // query the attachements and mark them as nsfw
+
+            let attachementsToLabel = await Media.findAll({
+              where: {
+                postId: postToLabel.id
+              }
+            })
+
+            await Promise.all(attachementsToLabel.map(async m => {
+              m.NSFW = true
+              await m.save()
+            }))
+          }
         }
       }
     }
