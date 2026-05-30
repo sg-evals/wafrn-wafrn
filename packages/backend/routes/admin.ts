@@ -15,14 +15,14 @@ import { federatePostHasBeenEdited } from '../utils/activitypub/editPost.js'
 import { BlockedIps } from '../models/blockedIp.js'
 
 export default function adminRoutes(app: Application) {
-  app.get('/api/admin/server-list', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+  app.get('/api/v4/admin/list-federated-hosts', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
     res.send({
       servers: await FederatedHost.findAll()
     })
   })
 
   if (completeEnvironment.registrationLevel === 'INVITE') {
-    app.get('/api/admin/invite-codes', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+    app.get('/api/v4/admin/list-invite-codes', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
       const inviteCodes = await InviteCode.findAll();
       const usersInvolved = await User.findAll({
         where: {
@@ -51,7 +51,7 @@ export default function adminRoutes(app: Application) {
       })
     })
 
-    app.post('/api/admin/create-invite-code', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+    app.post('/api/v4/admin/create-invite-code', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
       if (!req.jwtData) return res.sendStatus(401)
 
       const petitionBody: {
@@ -69,7 +69,7 @@ export default function adminRoutes(app: Application) {
     })
   }
 
-  app.post('/api/admin/server-update', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+  app.post('/api/v4/admin/update-federated-hosts', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
     const petitionBody: Array<server> = req.body
     if (petitionBody) {
       const hostsToUpdateIds = petitionBody.map((elem) => elem.id)
@@ -131,7 +131,7 @@ export default function adminRoutes(app: Application) {
     }
   })
 
-  app.get('/api/admin/userBlockList', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+  app.get('/api/v4/admin/get-user-server-blocks', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
     res.send({
       userBlocks: await Blocks.findAll({
         include: [
@@ -178,7 +178,7 @@ export default function adminRoutes(app: Application) {
     })
   })
 
-  app.get('/api/admin/reportCount', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+  app.get('/api/v4/admin/notifications', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
     res.send({
       reports: await PostReport.count({
         where: {
@@ -251,11 +251,11 @@ export default function adminRoutes(app: Application) {
     })
   }
 
-  app.get('/api/admin/reportList', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+  app.get('/api/v4/admin/reports/list', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
     res.send(await getReportList())
   })
 
-  app.post('/api/admin/closeReport', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+  app.post('/api/v4/admin/reports/:id/close', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
     const reportToBeClosed = await PostReport.findByPk(req.body.id)
     if (reportToBeClosed) {
       reportToBeClosed.resolved = true
@@ -264,7 +264,7 @@ export default function adminRoutes(app: Application) {
     res.send(await getReportList())
   })
 
-  app.post('/api/admin/banUser', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+  app.post('/api/v4/admin/reports/:id/ban-user', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
     const userToBeBanned = await User.scope('full').findByPk(req.body.id)
     if (userToBeBanned && userToBeBanned.role != 10) {
       let emailSent
@@ -295,7 +295,7 @@ export default function adminRoutes(app: Application) {
     })
   })
 
-  app.post('/api/admin/forceNSFWUser', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+  app.post('/api/v4/admin/reports/:id/force-nsfw-user', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
     const userToBeNSFW = await User.scope('full').findByPk(req.body.id)
     if (userToBeNSFW) {
       userToBeNSFW.NSFW = true
@@ -326,7 +326,7 @@ export default function adminRoutes(app: Application) {
       success: true
     })
   })
-  app.post('/api/admin/ignoreReport', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+  app.post('/api/v4/admin/reports/:id/ignore', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
     res.send(
       await PostReport.update(
         {
@@ -340,7 +340,7 @@ export default function adminRoutes(app: Application) {
       )
     )
   })
-  app.post('/api/admin/reopenReport', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
+  app.post('/api/v4/admin/reports/:id/reopen', authenticateToken, adminToken, async (req: AuthorizedRequest, res: Response) => {
     res.send(
       await PostReport.update(
         {
