@@ -2,6 +2,14 @@ import process from 'node:process'
 import { Environment } from './interfaces/environment.js'
 import { Buffer } from 'node:buffer'
 
+function buildDatabaseConnectionString(): string {
+  const explicit = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || process.env.POSTGRES_URL
+  if (explicit && explicit.trim() !== '') return explicit
+  else {
+    throw new Error('No database connection string provided. Please set TEST_DATABASE_URL, DATABASE_URL or POSTGRES_URL environment variable.')
+  }
+}
+
 export const baseEnvironment: Environment = {
   prod: true,
   // this makes the logs really heavy, but might be useful for queries
@@ -16,7 +24,7 @@ export const baseEnvironment: Environment = {
   // this was a dev thing. leave to true unless you are doing stuff in local or your media url is yourinstance/uploads (not recomended)
   removeFolderNameFromFileUploads: true,
   // we use now postgresql.
-  databaseConnectionString: `postgresql://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT}/${process.env.POSTGRES_DBNAME}`,
+  databaseConnectionString: buildDatabaseConnectionString(),
   listenIp: process.env.LISTEN_IP || '0.0.0.0',
   port: parseInt(process.env.PORT || '9000'),
   // In the case of you wantint to put fedi petitions in another thread, use a different port here. You will have to update your apache config
