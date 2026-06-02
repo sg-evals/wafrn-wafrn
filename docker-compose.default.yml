@@ -8,7 +8,8 @@ services:
     image: codeberg.org/wafrn/wafrn-frontend:${IMAGE_TAG:-main}
     build:
       context: .
-      dockerfile: packages/frontend/Dockerfile
+      dockerfile: packages/docker/Dockerfile
+      target: frontend
     env_file: .env
     environment:
       BACKEND_HOST: "${BACKEND_HOST:-wafrn-backend-1:9000 wafrn-backend-2:9000 wafrn-backend-3:9000}"
@@ -18,7 +19,6 @@ services:
       BULLBOARD_DOMAIN: ${BULLBOARD_DOMAIN:-bullboard.${DOMAIN_NAME}}
     volumes:
       - ./packages/frontend/runtime-overrides:/overrides
-      - "frontend:/var/www/html/frontend"
       - ./packages/backend/uploads:/var/www/html/uploads
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -30,7 +30,8 @@ services:
     image: codeberg.org/wafrn/wafrn-backend:${IMAGE_TAG:-main}
     build: &default_backend_build
       context: .
-      dockerfile: packages/backend/Dockerfile
+      dockerfile: packages/docker/Dockerfile
+      target: backend
       # these args configure private env vars for the backend and public env vars for the frontend
     depends_on:
       db:
@@ -55,7 +56,6 @@ services:
     volumes:
       - ./packages/backend/uploads:/app/packages/backend/uploads
       - cache:/app/packages/backend/cache
-      - frontend:/app/packages/frontend:ro
   workers:
     <<: *default_backend
     build:
@@ -242,7 +242,6 @@ services:
 volumes:
   dbpg:
   pds:
-  frontend:
   redis:
   prometheus_data:
   grafana_data:

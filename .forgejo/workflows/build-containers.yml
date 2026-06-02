@@ -4,6 +4,7 @@ on:
       - 'main'
       - 'preproduction'
       - 'development'
+      - 'tests/gabbo-docker-test'
 
 env:
   REGISTRY: codeberg.org
@@ -80,7 +81,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: packages/${{ matrix.package }}/Dockerfile
+          file: packages/docker/Dockerfile
+          target: ${{ matrix.package }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
